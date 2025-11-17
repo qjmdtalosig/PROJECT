@@ -1,13 +1,15 @@
 import streamlit as st
-import tensorflow as tf
 import numpy as np
 from PIL import Image
+import tflite_runtime.interpreter as tflite
 
-st.title("🐴🦌 Horse vs Deer Classifier")
+st.title("🐴🦌 Horse vs Deer Classifier (TFLite Version)")
 
-model = tf.keras.models.load_model("horse_deer_model.h5")
+interpreter = tflite.Interpreter(model_path="horse_deer_model.tflite")
+interpreter.allocate_tensors()
 
-CLASS_NAMES = ["Horse", "Deer"]
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 file = st.file_uploader("Upload a Horse or Deer image", type=["jpg", "png", "jpeg"])
 
@@ -16,9 +18,12 @@ if file:
     st.image(img, width=300)
 
     img_resized = img.resize((96, 96))
-    img_array = np.expand_dims(np.array(img_resized) / 255.0, axis=0)
+    img_array = np.expand_dims(np.array(img_resized) / 255.0, axis=0).astype(np.float32)
 
-    pred = model.predict(img_array)[0][0]
+    interpreter.set_tensor(input_details[0]['index'], img_array)
+    interpreter.invoke()
+
+    pred = interpreter.get_tensor(output_details[0]['index'])[0][0]
 
     if pred < 0.5:
         label = "Horse"
